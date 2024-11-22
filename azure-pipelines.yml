@@ -1,0 +1,31 @@
+trigger:
+- main
+
+pool:
+  vmImage: ubuntu-latest
+
+variables:
+  dockerImageName: 'sampleapp'
+
+jobs:
+- job: BuildAndDeploy
+  displayName: 'Build Docker Image and Deploy to Azure VM'
+
+  steps:
+  # Step 1: Checkout the repository
+  # - task: Checkout@2
+  #   displayName: 'Checkout Repository'
+
+  # Step 2: Set up Docker Build
+  - task: Docker@2
+    displayName: 'Build Docker Image'
+    inputs:
+      command: 'build'
+      repository: $(dockerImageName)
+      Dockerfile: 'dockerfile'  # Adjust this path to your Dockerfile
+      tags: 'latest'
+
+  - script: |
+      echo Add other tasks to build, test, and deploy your project.
+      ls -la
+    displayName: 'Run a multi-line script'

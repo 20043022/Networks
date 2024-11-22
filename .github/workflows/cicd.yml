@@ -1,0 +1,79 @@
+name: Build and Deploy to Azure VM
+
+on:
+  push:
+    branches:
+    - main  
+
+jobs:
+  build_and_deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Compress project files
+      run: |
+        zip -r sample.zip ./*
+        ls -la
+
+    - name: Add SSH Key
+      run: |
+        echo "${{ secrets.SSH_PRIVATE_KEY }}" > ssh_key.pem
+        chmod 600 ssh_key.pem
+
+    - name: Copy compressed source code to Azure VM
+      run: |
+        scp -o StrictHostKeyChecking=no -i ssh_key.pem sample.zip ${{ vars.AZURE_VM_USERNAME }}@${{ vars.AZURE_VM_IP }}:/home/${{ vars.AZURE_VM_USERNAME }}/
+
+    - name: SSH into Azure VM and deploy container
+      uses: appleboy/ssh-action@v0.1.7
+      with:
+        host: ${{ vars.AZURE_VM_IP }}
+        username: ${{ vars.AZURE_VM_USERNAME }}
+        key: ${{ secrets.SSH_PRIVATE_KEY }}
+        port: 22
+        script: |
+          # Navigate to the user's home directory
+          cd /home/${{ vars.AZURE_VM_USERNAME }}
+
+          # Verify the sample.zip file exists
+          if [ ! -f "sample.zip" ]; then
+            echo "File sample.zip was not copied successfully."
+            exit 1
+          fi
+
+          # Remove the old app directory if it exists
+          rm -rf app
+
+          # Unzip into a new directory
+          unzip -o sample.zip -d app
+
+          # Verify that the unzipped files are present
+          if [ -d "app" ]; then
+            echo "Unzip successful. Listing contents of 'app' directory:"
+            ls -la app
+          else
+            echo "Unzip failed or 'app' directory does not exist."
+            exit 1
+          fi
+
+          # Navigate to the Docker directory
+          cd app/Docker/
+          
+          # Build the Docker image locally with no cache to ensure it's up-to-date
+          docker build --no-cache -t nextjs-app .
+
+          # Stop and remove any existing container
+          docker stop nextjs-container || true
+          docker rm nextjs-container || true
+          
+          # Run the Docker container
+          docker run -d --name nextjs-container -p 8080:80 nextjs-app
+
+          echo "Docker container deployed successfully. Access your application at http://${{ vars.AZURE_VM_IP }}:8080"
+
+    - name: Clean up
+      run: |
+        rm ssh_key.pem
