@@ -20,7 +20,7 @@ jobs:
 
     - name: Add SSH Key
       run: |
-        echo "${{ secrets.SSH_PRIVATE_KEY }}" > ssh_key.pem
+        echo "${{ vars.SSH_PRIVATE_KEY }}" > ssh_key.pem
         chmod 600 ssh_key.pem
 
     - name: Copy compressed source code to Azure VM
@@ -32,7 +32,7 @@ jobs:
       with:
         host: ${{ vars.AZURE_VM_IP }}
         username: ${{ vars.AZURE_VM_USERNAME }}
-        key: ${{ secrets.SSH_PRIVATE_KEY }}
+        key: ${{ vars.SSH_PRIVATE_KEY }}
         port: 22
         script: |
           # Navigate to the user's home directory
